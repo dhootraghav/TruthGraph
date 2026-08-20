@@ -27,4 +27,7 @@ __pycache__/
 *.log
 
 # Docker / local data
-neo4j_data/.vinext/
+neo4j_data/
+
+# Vinext generated files
+.vinext/
