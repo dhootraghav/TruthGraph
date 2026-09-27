@@ -218,3 +218,35 @@ html[data-theme="dark"] .result-tabs button.active{color:#fff}
 .node-source{margin:-16px 0 20px;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
 .node-link{display:inline-flex;align-items:center;gap:6px;margin-top:18px;color:var(--electric);font-size:11px;font-weight:800;text-decoration:none}
 .node-link:hover{text-decoration:underline}
+
+
+/* Beginner-friendly results explanations */
+.node-picker{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.node-picker>span{display:block;margin-bottom:9px;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.12em}
+.node-picker>div{display:flex;flex-wrap:wrap;gap:7px}
+.node-picker button{min-width:34px;padding:7px 9px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);font-size:10px;font-weight:800}
+.node-picker button:hover,.node-picker button.active{border-color:var(--electric);color:var(--ink);background:rgba(255,79,18,.1)}
+.node-explain{margin:12px 0 0;color:var(--muted);font-size:10px;line-height:1.6}
+.node-panel h3{line-height:1.45;overflow-wrap:anywhere}
+.score-guide{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:5px 0 2px}
+.score-guide>div{padding:12px;border:1px solid var(--line);background:var(--panel-2);display:flex;flex-direction:column;gap:5px}
+.score-guide b{font-size:10px}
+.score-guide span{color:var(--muted);font-size:9px;line-height:1.45}
+.score-header{display:grid;grid-template-columns:1.8fr repeat(4,.5fr);align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.score-header span:not(:first-child){text-align:center}
+.score-row> b,.score-row>strong{text-align:center}
+.score-source>span{display:flex;min-width:0;flex-direction:column;gap:2px}
+.score-source b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.score-source small{color:var(--muted);font-size:8px}
+.graph-canvas svg{touch-action:manipulation}
+.click-node{pointer-events:all}
+.click-node circle,.click-node text{pointer-events:all}
+@media(max-width:900px){
+ .score-guide{grid-template-columns:1fr 1fr}
+}
+@media(max-width:650px){
+ .score-guide{grid-template-columns:1fr}
+ .score-header{display:none}
+ .score-row{grid-template-columns:1.5fr repeat(4,.65fr);gap:6px;padding-inline:6px}
+ .score-row> b,.score-row>strong{font-size:9px}
+}
