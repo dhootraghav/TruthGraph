@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import {
   Activity, ArrowRight, BookOpen, BrainCircuit, Check, CircleDot, Clock3,
-  ExternalLink, FileSearch, GitBranch, Globe2, History, Info, Link2, Menu,
+  ExternalLink, FileSearch, GitBranch, Globe2, History, Info, Menu,
   Moon, Network, Search, ShieldCheck, Sparkles, Sun, Trash2, X, Zap,
 } from "lucide-react";
 
@@ -240,21 +240,101 @@ const steps = [
   "Preparing your explanation",
 ];
 function VerifyPage({ complete }: { complete: (input:string, mode:"text"|"url")=>Promise<void> }) {
-  const [mode,setMode]=useState<"text"|"url">("text"),[input,setInput]=useState(""),[loading,setLoading]=useState(false),[step,setStep]=useState(0),[error,setError]=useState("");
-  const valid=mode==="text"?input.trim().length>=20:/^https?:\/\/\S+\.\S+/.test(input);
-  useEffect(()=>{if(!loading)return;const timer=setInterval(()=>setStep(s=>Math.min(s+1,6)),900);return()=>clearInterval(timer)},[loading]);
-  const analyse=async()=>{setStep(0);setError("");setLoading(true);try{await complete(input.trim(),mode)}catch(err){setError(err instanceof Error?err.message:"Verification failed. Please try again.");setLoading(false)}};
+  const [input,setInput]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [step,setStep]=useState(0);
+  const [error,setError]=useState("");
+  const valid=input.trim().length>=20;
+
+  useEffect(()=>{
+    if(!loading)return;
+    const timer=setInterval(()=>setStep(s=>Math.min(s+1,6)),900);
+    return()=>clearInterval(timer);
+  },[loading]);
+
+  const analyse=async()=>{
+    setStep(0);
+    setError("");
+    setLoading(true);
+    try{
+      await complete(input.trim(),"text");
+    }catch(err){
+      setError(err instanceof Error?err.message:"Verification failed. Please try again.");
+      setLoading(false);
+    }
+  };
+
   if(loading)return <main className="subpage"><section className="processing"><div className="orb"><BrainCircuit size={38}/><span/></div><span className="kicker">CHECKING YOUR CLAIM</span>
 <h1>We're comparing the evidence</h1>
 <p>
-  TruthGraph is finding relevant sources, checking whether they agree or
-  disagree, and preparing an explanation for you.
+  TruthGraph is finding relevant sources, checking whether they support or
+  contradict your claim, and preparing a clear explanation.
 </p><div className="progress-list">{steps.map((s,i)=><div key={s} className={i<step?"done":i===step?"current":""}><span>{i<step?<Check size={14}/>:i+1}</span><b>{s}</b>{i===step&&<em>In progress</em>}</div>)}</div></section></main>;
-  const randomClaim=()=>{const choices=demoResults.filter(x=>x.query!==input);setInput(choices[Math.floor(Math.random()*choices.length)].query)};
-  return <main className="subpage verify-page"><div className="page-intro"><span className="kicker">CHECK A CLAIM</span><h1>What would you like to verify?</h1><p>Enter something you have read, heard or seen online. TruthGraph will search for evidence, compare reliable sources and explain what it finds in simple language.</p></div><section className="verify-layout"><div className="input-panel"><div className="mode-tabs"><button className={mode==="text"?"active":""} onClick={()=>{setMode("text");setInput("");setError("")}}><FileSearch size={17}/>Text claim</button><button className={mode==="url"?"active":""} onClick={()=>{setMode("url");setInput("");setError("")}}><Link2 size={17}/>Article URL</button></div><div className="field-head"><label htmlFor="claim">
-  {mode==="text"?"Enter a statement you want to check":"Paste the article link"}
-</label><span>{mode==="text"?`${input.length} / 5,000`:"HTTPS recommended"}</span></div>{mode==="text"?<textarea id="claim" maxLength={5000} value={input} onChange={e=>setInput(e.target.value)} placeholder="Example: Humans use only 10% of their brains."/>:<div className="url-field"><Globe2 size={18}/><input id="claim" value={input} onChange={e=>setInput(e.target.value)} placeholder="https://example.com/article"/></div>}<div className="input-actions"><button className="text-button" onClick={()=>mode==="text"?randomClaim():setInput("https://example.com/article")}><Zap size={15}/>{mode==="text"?"Use random claim":"Use example URL"}</button>{input&&<button className="text-button" onClick={()=>setInput("")}><Trash2 size={15}/>Clear</button>}</div><button className="analyse" disabled={!valid} onClick={analyse}><Search size={19}/>Check this claim <ArrowRight size={18}/></button>{error?<p className="demo-note api-error"><Info size={14}/>{error}</p>:<p className="demo-note"><Info size={14}/>TruthGraph checks multiple sources and shows you the evidence behind its conclusion.</p>}</div><aside className="what-happens"><span className="kicker">HOW IT WORKS</span>
-<h3>From your question to an explained answer.</h3><div>{steps.map((s,i)=><p key={s}><span>{i+1}</span>{s}</p>)}</div><div className="time-note"><Clock3/><span><b>Live evidence takes time</b>Verification may take 30–90 seconds with the backend.</span></div></aside></section></main>;
+
+  const randomClaim=()=>{
+    const choices=demoResults.filter(x=>x.query!==input);
+    setInput(choices[Math.floor(Math.random()*choices.length)].query);
+  };
+
+  return <main className="subpage verify-page">
+    <div className="page-intro">
+      <span className="kicker">CHECK A CLAIM</span>
+      <h1>What would you like to verify?</h1>
+      <p>
+        TruthGraph fact-checks a claim by gathering evidence from multiple sources,
+        comparing where those sources agree or disagree, and showing you how the
+        final verdict was reached.
+      </p>
+    </div>
+
+    <section className="verify-layout">
+      <div className="input-panel">
+        <div className="field-head">
+          <label htmlFor="claim">Enter a statement you want to check</label>
+          <span>{input.length} / 5,000</span>
+        </div>
+
+        <textarea
+          id="claim"
+          maxLength={5000}
+          value={input}
+          onChange={e=>setInput(e.target.value)}
+          placeholder="Example: Humans use only 10% of their brains."
+        />
+
+        <div className="input-actions">
+          <button className="text-button" onClick={randomClaim}>
+            <Zap size={15}/>Use random claim
+          </button>
+          {input&&<button className="text-button" onClick={()=>setInput("")}>
+            <Trash2 size={15}/>Clear
+          </button>}
+        </div>
+
+        <button className="analyse" disabled={!valid} onClick={analyse}>
+          <Search size={19}/>Check this claim <ArrowRight size={18}/>
+        </button>
+
+        {error
+          ?<p className="demo-note api-error"><Info size={14}/>{error}</p>
+          :<p className="demo-note"><Info size={14}/>TruthGraph compares multiple sources so you can see the evidence behind its verdict.</p>
+        }
+      </div>
+
+      <aside className="what-happens">
+        <span className="kicker">HOW IT WORKS</span>
+        <h3>From your claim to an explained verdict.</h3>
+        <div>{steps.map((s,i)=><p key={s}><span>{i+1}</span>{s}</p>)}</div>
+        <div className="time-note">
+          <Clock3/>
+          <span>
+            <b>Live evidence takes time</b>
+            TruthGraph may run more than one search when a claim needs additional evidence.
+          </span>
+        </div>
+      </aside>
+    </section>
+  </main>;
 }
 function scoreLabel(value:number){
   if(value>=90)return "Very high";
@@ -262,6 +342,20 @@ function scoreLabel(value:number){
   if(value>=50)return "Moderate";
   if(value>=25)return "Low";
   return "Very low";
+}
+
+function evidenceStrength(evidence:EvidenceItem){
+  return Math.round(
+    (evidence.authority*evidence.relevance*evidence.agreement)/10000
+  );
+}
+
+function claimSupportExplanation(value:number){
+  if(value>=80)return "The evidence strongly supports the original claim.";
+  if(value>=60)return "The evidence leans toward supporting the original claim.";
+  if(value>40)return "The evidence is mixed or not decisive about the original claim.";
+  if(value>20)return "The evidence leans toward contradicting the original claim.";
+  return "The evidence strongly contradicts the original claim.";
 }
 
 function sourceName(host:string){
@@ -292,8 +386,9 @@ function sourceName(host:string){
 
 function cleanReasoning(reasoning:string){
   return reasoning
-    .replace(/\s*GraphTrust CWCP score R=[\d.]+;?\s*confidence=\d+\/100\s*using authority x relevance x agreement over cited evidence nodes\.?/gi,"")
-    .replace(/\s*GraphTrust score R=[\d.]+.*$/gi,"")
+    .replace(/\s*GraphTrust CWCP score R=[-\d.]+;?\s*confidence=\d+\/100\s*using authority x relevance x agreement over cited evidence nodes\.?/gi,"")
+    .replace(/\s*GraphTrust score R=[-\d.]+.*$/gi,"")
+    .replace(/\s*GraphTrust evidence balance R=[-\d.]+;?\s*verdict confidence=\d+\/100\.?/gi,"")
     .trim();
 }
 
@@ -313,40 +408,16 @@ function EvidenceGraph({result}:{result:DemoResult}){
   const [selected,setSelected]=useState("claim");
   const selectedIndex=result.evidence.findIndex(item=>item.id===selected);
   const selectedEvidence=result.evidence.find(item=>item.id===selected);
-
-  const node=selected==="claim"
-    ? {
-        title:"Primary claim",
-        host:"",
-        url:"",
-        stance:"Claim",
-        authority:null,
-        relevance:100,
-        agreement:result.credibility
-      }
-    : selectedEvidence
-      ? {
-          ...selectedEvidence,
-          authority:selectedEvidence.authority
-        }
-      : {
-          title:"Evidence unavailable",
-          host:"",
-          url:"",
-          stance:"Neutral",
-          authority:0,
-          relevance:0,
-          agreement:0
-        };
-
+  const neutralCount=Math.max(0,result.evidence.length-result.support-result.contradict);
   const center={x:350,y:215};
+  const nodeRadius=result.evidence.length>12?21:result.evidence.length>8?25:34;
 
   const positions=result.evidence.map((item,index)=>{
     const angle=-Math.PI/2+(index/result.evidence.length)*Math.PI*2;
     return {
       ...item,
-      x:center.x+Math.cos(angle)*255,
-      y:center.y+Math.sin(angle)*155
+      x:center.x+Math.cos(angle)*270,
+      y:center.y+Math.sin(angle)*165
     };
   });
 
@@ -397,11 +468,9 @@ function EvidenceGraph({result}:{result:DemoResult}){
             onClick={()=>setSelected(item.id)}
             onKeyDown={selectWithKeyboard}
           >
-            <circle r="34"/>
+            <circle r={nodeRadius}/>
             <text className="source-number" y="-4">S{index+1}</text>
-            <text className="source-mark" y="15">
-              {supports?"✓":neutral?"•":"×"}
-            </text>
+            <text className="source-mark" y="15">{supports?"✓":neutral?"•":"×"}</text>
           </g>
         })}
 
@@ -421,78 +490,120 @@ function EvidenceGraph({result}:{result:DemoResult}){
         >
           <circle r="59"/>
           <text y="-3">CLAIM</text>
-          <text y="22" className="mini">{result.confidence}%</text>
+          <text y="22" className="mini">{result.credibility}/100</text>
         </g>
       </svg>
 
       <div className="network-legend">
-        <span><i className="dot support-dot"/>Supports the claim</span>
-        <span><i className="dot oppose-dot"/>Contradicts the claim</span>
-        <span><i className="dot neutral-dot"/>Neither clearly supports nor contradicts</span>
+        <span><i className="dot support-dot"/>Supports</span>
+        <span><i className="dot oppose-dot"/>Contradicts</span>
+        <span><i className="dot neutral-dot"/>Neutral</span>
       </div>
     </div>
 
     <aside className="node-panel">
-      <span className="kicker">
-        {selected==="claim"?"SELECTED CLAIM":`SOURCE ${selectedIndex+1}`}
-      </span>
-
-      <h3>{node.title}</h3>
-
-      {node.host&&
-        <p className="node-source">
-          {sourceName(node.host)}
-        </p>
-      }
+      <div className="node-picker">
+        <span>CHOOSE A NODE</span>
+        <div>
+          <button
+            className={selected==="claim"?"active":""}
+            onClick={()=>setSelected("claim")}
+          >
+            Claim
+          </button>
+          {result.evidence.map((item,index)=>
+            <button
+              key={item.id}
+              className={selected===item.id?"active":""}
+              onClick={()=>setSelected(item.id)}
+              title={sourceName(item.host)}
+            >
+              S{index+1}
+            </button>
+          )}
+        </div>
+      </div>
 
       {selected==="claim"
-        ? <p className="node-source">
-            This is the statement TruthGraph is checking. Select any surrounding source to see how it contributed to the verdict.
+        ?<>
+          <span className="kicker">PRIMARY CLAIM</span>
+          <h3>“{result.query}”</h3>
+          <p className="node-source">
+            This is the exact statement TruthGraph is checking.
           </p>
-        : <p className="node-source">
-            This source {node.stance==="Supports"
-              ?"supports the claim."
-              :node.stance==="Contradicts"
-                ?"provides evidence against the claim."
-                :"is relevant but does not clearly support or contradict the claim."}
+
+          <dl>
+            <div>
+              <dt>Current verdict</dt>
+              <dd>{result.verdict==="true"?"Supported":result.verdict==="false"?"False":result.verdict==="misleading"?"Misleading":"Unverifiable"}</dd>
+            </div>
+            <div>
+              <dt>Verdict confidence</dt>
+              <dd>{result.confidence}%</dd>
+            </div>
+            <div>
+              <dt>Claim support score</dt>
+              <dd>{result.credibility}/100</dd>
+            </div>
+            <div>
+              <dt>Evidence found</dt>
+              <dd>{result.evidence.length} sources</dd>
+            </div>
+          </dl>
+
+          <p className="node-explain">
+            {result.support} support · {result.contradict} contradict
+            {neutralCount>0?` · ${neutralCount} neutral`:""}
           </p>
-      }
+        </>
+        :selectedEvidence
+          ?<>
+            <span className="kicker">SOURCE {selectedIndex+1}</span>
+            <h3>{selectedEvidence.title}</h3>
+            <p className="node-source">{sourceName(selectedEvidence.host)}</p>
+            <p className="node-explain">
+              {selectedEvidence.stance==="Supports"
+                ?"This source gives evidence in favour of the claim."
+                :selectedEvidence.stance==="Contradicts"
+                  ?"This source gives evidence against the claim."
+                  :"This source is related to the claim but does not clearly support or contradict it."}
+            </p>
 
-      <dl>
-        <div>
-          <dt>Evidence position</dt>
-          <dd>{node.stance}</dd>
-        </div>
+            <dl>
+              <div>
+                <dt>Role in verdict</dt>
+                <dd>{selectedEvidence.stance}</dd>
+              </div>
+              <div>
+                <dt>Source quality</dt>
+                <dd>{selectedEvidence.authority}/100</dd>
+              </div>
+              <div>
+                <dt>Match to claim</dt>
+                <dd>{selectedEvidence.relevance}/100</dd>
+              </div>
+              <div>
+                <dt>Contribution</dt>
+                <dd>{evidenceStrength(selectedEvidence)}/100</dd>
+              </div>
+            </dl>
 
-        <div>
-          <dt>Source reliability</dt>
-          <dd>
-            {node.authority===null
-              ?"Not applicable"
-              :`${node.authority}% · ${scoreLabel(Number(node.authority))}`}
-          </dd>
-        </div>
+            <p className="node-explain">
+              Source quality estimates how dependable the source is. Match to claim
+              shows how directly the page addresses your statement. Contribution is
+              the final weight this source receives in TruthGraph&apos;s scoring.
+            </p>
 
-        <div>
-          <dt>Relevance to claim</dt>
-          <dd>{node.relevance}% · {scoreLabel(Number(node.relevance))}</dd>
-        </div>
-
-        <div>
-          <dt>Agreement with evidence</dt>
-          <dd>{node.agreement}% · {scoreLabel(Number(node.agreement))}</dd>
-        </div>
-      </dl>
-
-      {node.url&&
-        <a
-          className="node-link"
-          href={node.url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          View original source <ExternalLink size={13}/>
-        </a>
+            <a
+              className="node-link"
+              href={selectedEvidence.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View original source <ExternalLink size={13}/>
+            </a>
+          </>
+          :<p className="node-explain">Select a source to inspect it.</p>
       }
     </aside>
   </div>;
@@ -545,16 +656,18 @@ function ResultsPage({result}:{result:DemoResult}){
       <article className="score-card">
         <Gauge value={result.credibility}/>
         <div>
-          <span>CREDIBILITY SCORE</span>
+          <span>CLAIM SUPPORT SCORE</span>
           <h2>{summary[0]}</h2>
-          <p>{summary[1]}</p>
+          <p>
+            {claimSupportExplanation(result.credibility)}
+          </p>
         </div>
       </article>
 
       <article className="metrics-card">
         <div>
           <strong>{result.confidence}%</strong>
-          <span>Confidence</span>
+          <span>Verdict confidence</span>
         </div>
         <div>
           <strong>{result.claims}</strong>
@@ -562,11 +675,11 @@ function ResultsPage({result}:{result:DemoResult}){
         </div>
         <div>
           <strong>{result.support}</strong>
-          <span>Supporting sources</span>
+          <span>Sources supporting the claim</span>
         </div>
         <div>
           <strong>{result.contradict}</strong>
-          <span>Contradicting sources</span>
+          <span>Sources contradicting the claim</span>
         </div>
       </article>
     </section>
@@ -578,13 +691,9 @@ function ResultsPage({result}:{result:DemoResult}){
 
       <div>
         <span className="kicker">WHY THIS VERDICT</span>
-
+        <p>{friendlyReasoning}</p>
         <p>
-          {friendlyReasoning}
-        </p>
-
-        <p>
-          <b>Why TruthGraph is confident:</b>{" "}
+          <b>Evidence checked:</b>{" "}
           TruthGraph analysed {result.evidence.length} sources.
           {" "}{result.support} support the claim,
           {" "}{result.contradict} contradict it
@@ -622,29 +731,25 @@ function ResultsPage({result}:{result:DemoResult}){
 
       {tab==="overview"&&
         <div className="tab-content overview-content">
-
           <div>
-            <span>Confidence</span>
+            <span>How sure is TruthGraph about the verdict?</span>
             <strong>{result.confidence}%</strong>
-            <i>
-              <b style={{width:`${result.confidence}%`}}/>
-            </i>
+            <i><b style={{width:`${result.confidence}%`}}/></i>
             <p>
-              {scoreLabel(result.confidence)} confidence. This shows how strongly
-              the combined evidence supports TruthGraph&apos;s verdict. It is not
-              a guarantee of absolute truth.
+              {scoreLabel(result.confidence)} confidence means TruthGraph found a
+              clear evidence pattern for the verdict above. A high confidence can
+              apply to either a supported or a false claim.
             </p>
           </div>
 
           <div>
-            <span>Credibility score</span>
+            <span>How much does the evidence support the claim?</span>
             <strong>{result.credibility}/100</strong>
-            <i>
-              <b style={{width:`${result.credibility}%`}}/>
-            </i>
+            <i><b style={{width:`${result.credibility}%`}}/></i>
             <p>
-              {scoreLabel(result.credibility)}. This reflects the overall strength
-              of the result based on source reliability, relevance and agreement.
+              0 means the evidence strongly contradicts the original claim.
+              100 means it strongly supports it. Around 50 means the evidence is
+              mixed, incomplete or unclear.
             </p>
           </div>
 
@@ -656,10 +761,10 @@ function ResultsPage({result}:{result:DemoResult}){
               {neutralCount>0?` · ${neutralCount} neutral`:""}
             </p>
             <p>
-              These are the sources TruthGraph compared when checking this claim.
+              TruthGraph can use a different number of sources for different claims,
+              depending on how much useful evidence it finds.
             </p>
           </div>
-
         </div>
       }
 
@@ -683,17 +788,9 @@ function ResultsPage({result}:{result:DemoResult}){
               </div>
 
               <div>
-                <span>
-                  SOURCE {index+1} · {e.stance.toUpperCase()}
-                </span>
-
+                <span>SOURCE {index+1} · {e.stance.toUpperCase()}</span>
                 <h3>{e.title}</h3>
-
-                <a
-                  href={e.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href={e.url} target="_blank" rel="noopener noreferrer">
                   {sourceName(e.host)}
                   <ExternalLink size={13}/>
                 </a>
@@ -701,7 +798,7 @@ function ResultsPage({result}:{result:DemoResult}){
 
               <div className="evidence-score">
                 <strong>{e.authority}%</strong>
-                <span>source reliability</span>
+                <span>source quality</span>
               </div>
             </article>
           )}
@@ -714,10 +811,10 @@ function ResultsPage({result}:{result:DemoResult}){
             <Info/>
             <span>
               <b>How to read this graph</b>
-              The claim is in the centre. S1, S2, S3 and the other surrounding
-              circles are the sources listed in the Evidence tab. Their connecting
-              lines show whether they support or contradict the claim. Select a
-              source to see what it is and how strongly it contributed.
+              Your claim is in the centre and each S circle is one source.
+              Green sources support the claim, red sources contradict it and grey
+              sources are neutral. Click a source circle, or use the source buttons
+              beside the graph, to see exactly how that source affected the result.
             </span>
           </div>
 
@@ -741,7 +838,6 @@ function ResultsPage({result}:{result:DemoResult}){
               </div>
 
               <span>STEP {String(index+1).padStart(2,"0")}</span>
-
               <h3>{shortName}</h3>
 
               <p>
@@ -751,7 +847,7 @@ function ResultsPage({result}:{result:DemoResult}){
 
               <div>
                 <b>{agent.confidence}%</b>{" "}
-                confidence in this analysis step
+                confidence in this step&apos;s conclusion
               </div>
             </article>
           })}
@@ -760,75 +856,83 @@ function ResultsPage({result}:{result:DemoResult}){
 
       {tab==="scores"&&
         <div className="tab-content score-table">
-
           <div className="formula">
             <Info/>
             <span>
-              <b>
-                Evidence strength = source reliability × relevance × agreement
-              </b>
-              Each source receives an evidence-strength score. Source reliability
-              estimates the quality of the source, relevance measures how directly
-              it addresses the claim, and agreement measures how consistent it is
-              with the other evidence.
+              <b>How each source affects the verdict</b>
+              These values show how much weight TruthGraph gives each source while
+              checking this claim. They do not mean that a source is a certain
+              percentage &quot;true&quot;.
             </span>
           </div>
 
-          {result.evidence.map((e,index)=>{
-            const strength=Math.round(
-              (e.authority*e.relevance*e.agreement)/10000
-            );
+          <div className="score-guide">
+            <div>
+              <b>Source quality</b>
+              <span>How dependable the source is for fact-checking.</span>
+            </div>
+            <div>
+              <b>Match to claim</b>
+              <span>How directly the source discusses this exact claim.</span>
+            </div>
+            <div>
+              <b>Verdict certainty</b>
+              <span>How confidently TruthGraph identified the source&apos;s role.</span>
+            </div>
+            <div>
+              <b>Contribution</b>
+              <span>How much weight the source receives in the final calculation.</span>
+            </div>
+          </div>
 
-            return <div className="score-row" key={e.id}>
+          <div className="score-header" aria-hidden="true">
+            <span>Source</span>
+            <span>Quality</span>
+            <span>Match</span>
+            <span>Certainty</span>
+            <span>Contribution</span>
+          </div>
 
-              <span>
+          {result.evidence.map((e,index)=>
+            <div className="score-row" key={e.id}>
+              <span className="score-source">
                 <i className={
                   e.stance==="Supports"
                     ?"green-dot"
-                    :"red-dot"
+                    :e.stance==="Contradicts"
+                      ?"red-dot"
+                      :"neutral-dot"
                 }/>
-
-                {`S${index+1} · ${sourceName(e.host)}`}
+                <span>
+                  <b>{`S${index+1} · ${sourceName(e.host)}`}</b>
+                  <small>{e.stance}</small>
+                </span>
               </span>
 
-              <b title="Source reliability: how trustworthy and authoritative this source is">
-                {e.authority}%
-              </b>
-
-              <b title="Relevance: how closely this source addresses the claim">
-                {e.relevance}%
-              </b>
-
-              <b title="Agreement: how consistent this source is with the other evidence">
-                {e.agreement}%
-              </b>
-
-              <strong title="Evidence strength: source reliability × relevance × agreement">
-                {strength}%
-              </strong>
-
+              <b>{e.authority}%</b>
+              <b>{e.relevance}%</b>
+              <b>{e.agreement}%</b>
+              <strong>{evidenceStrength(e)}%</strong>
             </div>
-          })}
+          )}
 
           <div className="formula">
             <Info/>
             <span>
-              <b>What do these scores mean?</b>
-              The four values shown for each source are, in order: source
-              reliability, relevance to the claim, agreement with the evidence,
-              and final evidence strength. Higher values mean that the source
-              contributes more strongly to the verdict.
+              <b>Contribution = quality × match × certainty</b>
+              A high contribution means this source had more influence on the
+              evidence calculation. A low contribution does not automatically mean
+              the source is false; it may simply be less relevant, less reliable or
+              neutral for this particular claim.
             </span>
           </div>
-
         </div>
       }
-
     </section>
   </main>;
 }
 function PipelinePage(){
- const stages=[[FileSearch,"01","Input processing","Clean text or extract readable article content from a submitted URL."],[Search,"02","Claim extraction","Identify up to five specific factual statements that can be verified."],[Globe2,"03","Live evidence retrieval","Collect recent sources that support, contradict or contextualise each claim."],[BrainCircuit,"04","Initial verdict","Analyse evidence stance, meaning and source quality."],[Network,"05","Evidence graph","Connect claims and evidence through typed, inspectable relationships."],[Activity,"06","GraphTrust / CWCP","Weight evidence by authority, relevance and agreement."],[ShieldCheck,"07","Multi-agent review","Independent agents audit sources and resolve contradictions."],[BookOpen,"08","Explainable output","Return a verdict traceable back to evidence."]] as const;
+ const stages=[[FileSearch,"01","Input processing","Read the submitted text and prepare the claim for fact-checking."],[Search,"02","Claim extraction","Identify the specific factual statement or statements that can be checked."],[Globe2,"03","Live evidence retrieval","Search multiple sources and broaden the search when more evidence is needed."],[BrainCircuit,"04","Initial verdict","Analyse evidence stance, meaning and source quality."],[Network,"05","Evidence graph","Connect claims and evidence through typed, inspectable relationships."],[Activity,"06","GraphTrust / CWCP","Weight evidence by authority, relevance and agreement."],[ShieldCheck,"07","Multi-agent review","Independent agents audit sources and resolve contradictions."],[BookOpen,"08","Explainable output","Return a verdict traceable back to evidence."]] as const;
  return <main className="subpage pipeline-page"><div className="page-intro"><span className="kicker">THE METHODOLOGY</span><h1>From raw claim to explainable verdict.</h1><p>TruthGraph builds an auditable reasoning path in eight connected stages.</p></div><div className="pipeline-grid">{stages.map(([Icon,n,t,b])=><article key={n}><span className="stage-num">{n}</span><div className="icon-box"><Icon/></div><h2>{t}</h2><p>{b}</p></article>)}</div><section className="formula-band"><div><span className="kicker">CORE NOVELTY</span><h2>Consensus-Weighted Confidence Propagation</h2><p>CWCP preserves the structure of agreement instead of flattening every source into the same vote.</p></div><code>weight<sub>n</sub> = authority × relevance × agreement</code></section></main>;
 }
 function AboutPage(){
