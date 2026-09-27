@@ -7,6 +7,12 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+import sys
+
+# Allow this script to be run directly from backend/evaluation/.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.models import InputType
 from app.pipeline import VerificationPipeline
