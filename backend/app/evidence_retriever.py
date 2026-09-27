@@ -1,4 +1,4 @@
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from tavily import TavilyClient
 
@@ -26,28 +26,77 @@ HIGH_RELIABILITY_DOMAINS = {
     "snopes.com": 4,
 }
 
+LOW_RELIABILITY_DOMAINS = {
+    "facebook.com",
+    "reddit.com",
+    "x.com",
+    "twitter.com",
+    "tiktok.com",
+    "instagram.com",
+}
+
 ACADEMIC_DOMAINS = {"edu", "arxiv.org", "pubmed.ncbi.nlm.nih.gov", "scholar.google.com", "semanticscholar.org"}
 NEWS_DOMAINS = {"apnews.com", "reuters.com", "bbc.com", "bbc.co.uk", "npr.org", "nytimes.com", "theguardian.com"}
 TRUSTED_DATABASE_DOMAINS = {"who.int", "cdc.gov", "nih.gov", "nasa.gov", "noaa.gov", "un.org", "worldbank.org"}
 DOMAIN_SPECIFIC_DOMAINS = {"factcheck.org", "politifact.com", "snopes.com"}
 
 
+def _host(url: str) -> str:
+    return urlparse(url).netloc.lower().removeprefix("www.")
+
+
 def domain_reliability(url: str) -> int:
-    host = urlparse(url).netloc.lower().removeprefix("www.")
-    return max((score for domain, score in HIGH_RELIABILITY_DOMAINS.items() if host == domain or host.endswith(f".{domain}")), default=0)
+    host = _host(url)
+
+    known = max(
+        (score for domain, score in HIGH_RELIABILITY_DOMAINS.items() if host == domain or host.endswith(f".{domain}")),
+        default=0,
+    )
+    if known:
+        return known
+
+    if any(host == domain or host.endswith(f".{domain}") for domain in LOW_RELIABILITY_DOMAINS):
+        return 1
+    if host.endswith(".gov") or host.endswith(".gov.uk"):
+        return 5
+    if host.endswith(".edu") or host.endswith(".ac.uk"):
+        return 4
+    return 0
 
 
 def source_type(url: str) -> str:
-    host = urlparse(url).netloc.lower().removeprefix("www.")
-    if host.endswith(".edu") or any(host == domain or host.endswith(f".{domain}") for domain in ACADEMIC_DOMAINS):
+    host = _host(url)
+    if host.endswith(".edu") or host.endswith(".ac.uk") or any(
+        host == domain or host.endswith(f".{domain}") for domain in ACADEMIC_DOMAINS
+    ):
         return "academic"
-    if any(host == domain or host.endswith(f".{domain}") for domain in TRUSTED_DATABASE_DOMAINS):
+    if host.endswith(".gov") or host.endswith(".gov.uk") or any(
+        host == domain or host.endswith(f".{domain}") for domain in TRUSTED_DATABASE_DOMAINS
+    ):
         return "trusted_database"
     if any(host == domain or host.endswith(f".{domain}") for domain in DOMAIN_SPECIFIC_DOMAINS):
         return "domain_specific"
     if any(host == domain or host.endswith(f".{domain}") for domain in NEWS_DOMAINS):
         return "news"
     return "web"
+
+
+def canonical_url(url: str) -> str:
+    parsed = urlparse(url)
+    path = parsed.path.rstrip("/") or "/"
+    return urlunparse((parsed.scheme.lower(), parsed.netloc.lower().removeprefix("www."), path, "", "", ""))
+
+
+def evidence_rank(source: EvidenceSource) -> float:
+    relevance = source.score if source.score is not None else 0.5
+    authority = source.reliability / 5 if source.reliability else {
+        "trusted_database": 0.9,
+        "academic": 0.85,
+        "domain_specific": 0.75,
+        "news": 0.7,
+        "web": 0.45,
+    }.get(source.source_type, 0.45)
+    return (0.65 * relevance) + (0.35 * authority)
 
 
 class EvidenceRetriever:
@@ -68,26 +117,73 @@ class EvidenceRetriever:
             raise ExternalServiceError("TAVILY_API_KEY is not configured")
 
         async def operation() -> ClaimEvidence:
-            response = self.client.search(
-                query=claim,
-                search_depth=self.settings.tavily_search_depth,
-                max_results=self.settings.tavily_results_per_claim,
-                include_answer=False,
-            )
-            results = response.get("results", [])
-            evidence = [
-                EvidenceSource(
-                    title=item.get("title"),
-                    url=item["url"],
-                    content=item.get("content") or item.get("raw_content") or item.get("snippet") or "",
-                    score=item.get("score"),
-                    reliability=domain_reliability(item["url"]),
-                    source_type=source_type(item["url"]),
-                )
-                for item in results
-                if item.get("url") and (item.get("content") or item.get("raw_content") or item.get("snippet"))
+            queries = [
+                claim,
+                f"fact check evidence for and against: {claim}",
+                f"research evidence about: {claim}",
             ]
-            evidence.sort(key=lambda item: (item.reliability, item.score or 0), reverse=True)
-            return ClaimEvidence(claim=claim, evidence=evidence)
+
+            by_url: dict[str, EvidenceSource] = {}
+
+            for search_index, query in enumerate(queries[: self.settings.tavily_max_searches_per_claim]):
+                response = self.client.search(
+                    query=query,
+                    search_depth=self.settings.tavily_search_depth,
+                    max_results=self.settings.tavily_results_per_claim,
+                    include_answer=False,
+                )
+
+                for item in response.get("results", []):
+                    url = item.get("url")
+                    content = item.get("content") or item.get("raw_content") or item.get("snippet") or ""
+                    score = item.get("score")
+
+                    if not url or not content:
+                        continue
+                    if score is not None and score < self.settings.tavily_min_relevance:
+                        continue
+
+                    source = EvidenceSource(
+                        title=item.get("title"),
+                        url=url,
+                        content=content,
+                        score=score,
+                        reliability=domain_reliability(url),
+                        source_type=source_type(url),
+                    )
+
+                    key = canonical_url(url)
+                    previous = by_url.get(key)
+                    if previous is None or evidence_rank(source) > evidence_rank(previous):
+                        by_url[key] = source
+
+                quality_count = sum(
+                    1
+                    for source in by_url.values()
+                    if (source.score or 0) >= self.settings.tavily_min_relevance
+                )
+
+                # One good broad search plus one verification-oriented search is
+                # normally enough. A third search is only used when the evidence
+                # pool is still too small.
+                if search_index >= 1 and quality_count >= self.settings.tavily_min_quality_sources:
+                    break
+
+            ranked = sorted(by_url.values(), key=evidence_rank, reverse=True)
+
+            # Encourage source diversity so several pages from one site do not
+            # crowd out independent evidence.
+            selected: list[EvidenceSource] = []
+            per_domain: dict[str, int] = {}
+            for source in ranked:
+                host = _host(str(source.url))
+                if per_domain.get(host, 0) >= 2:
+                    continue
+                selected.append(source)
+                per_domain[host] = per_domain.get(host, 0) + 1
+                if len(selected) >= self.settings.tavily_max_results_per_claim:
+                    break
+
+            return ClaimEvidence(claim=claim, evidence=selected)
 
         return await with_retries(operation, self.settings, "Tavily search")
