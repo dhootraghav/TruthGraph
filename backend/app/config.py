@@ -20,7 +20,15 @@ class Settings(BaseSettings):
     retry_backoff_seconds: float = 0.5
 
     tavily_search_depth: Literal["basic", "advanced"] = "advanced"
-    tavily_results_per_claim: int = 5
+
+    # Start with a useful evidence set, then broaden only when the first search
+    # does not provide enough distinct, relevant sources.
+    tavily_results_per_claim: int = 8
+    tavily_max_results_per_claim: int = 15
+    tavily_min_quality_sources: int = 6
+    tavily_max_searches_per_claim: int = 3
+    tavily_min_relevance: float = 0.45
+
     max_claims: int = 5
     graph_confidence_k: float = 2.5
     direct_evidence_hop_distance: int = 1
