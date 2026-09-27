@@ -96,7 +96,7 @@ def evidence_rank(source: EvidenceSource) -> float:
         "news": 0.7,
         "web": 0.45,
     }.get(source.source_type, 0.45)
-    return (0.65 * relevance) + (0.35 * authority)
+    return (0.45 * relevance) + (0.55 * authority)
 
 
 class EvidenceRetriever:
